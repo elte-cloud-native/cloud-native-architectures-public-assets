@@ -53,6 +53,7 @@ PAGE = """<!doctype html>
     <input type="text" name="text" required placeholder="New note">
     <button>Add</button>
   </form>
+  <p>The newest {{ notes | length }} of {{ total }} notes:</p>
   <ul>{% for note in notes %}<li>{{ note }}</li>{% endfor %}</ul>
   <p>
     <a href="/slow">Recommendations (slow)</a> ·
@@ -65,7 +66,8 @@ PAGE = """<!doctype html>
 
 @app.get("/")
 def index():
-    return render_template_string(PAGE, notes=NOTES)
+    newest = NOTES[::-1][:15]
+    return render_template_string(PAGE, notes=newest, total=len(NOTES))
 
 
 @app.post("/notes")
