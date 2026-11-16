@@ -96,7 +96,8 @@ def recommendations():
         span.set_attribute("app.delay_seconds", round(delay, 2))
         time.sleep(delay)
     if delay > 2:
-        log.warning("Recommendations took %.1f s", delay)
+        # A constant message with the details as attributes: easy to search and group
+        log.warning("Slow recommendations", extra={"delay_seconds": round(delay, 2)})
     return f"<p>Write fewer notes. (This page took {delay:.1f} s.)</p><p><a href='/'>Back</a></p>"
 
 
