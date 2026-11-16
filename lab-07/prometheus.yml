@@ -1,0 +1,10 @@
+# The app pushes its metrics to Prometheus over OTLP (see otel-collector.yaml).
+# Prometheus also pulls (scrapes) its own metrics, the classic way.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    metrics_path: /prometheus/metrics   # served under /prometheus, see compose.yaml
+    static_configs:
+      - targets: ["localhost:9090"]

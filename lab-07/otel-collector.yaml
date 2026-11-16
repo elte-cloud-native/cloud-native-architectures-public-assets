@@ -1,0 +1,41 @@
+# OpenTelemetry Collector: receive OTLP from the app, send each signal to its backend
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318      # the app sends OTLP over HTTP
+
+processors:
+  memory_limiter:                   # first in every pipeline: protects the Collector
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
+exporters:
+  otlp_grpc/jaeger:                 # traces -> Jaeger
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+    sending_queue:
+      batch: {}                     # send spans in batches
+  otlp_http/prometheus:             # metrics -> Prometheus (OTLP receiver)
+    endpoint: http://prometheus:9090/prometheus/api/v1/otlp
+    sending_queue:
+      batch: {}
+  debug:                            # logs -> the Collector's own output
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter]
+      exporters: [otlp_grpc/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter]
+      exporters: [otlp_http/prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter]
+      exporters: [debug]

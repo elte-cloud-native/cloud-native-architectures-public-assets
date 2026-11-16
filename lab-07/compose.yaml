@@ -1,0 +1,66 @@
+# The Observability lab stack: the Notes app, a traffic generator, an
+# OpenTelemetry Collector, Jaeger (traces) and Prometheus (metrics) behind an
+# nginx reverse proxy. Only the proxy publishes a port: 80.
+services:
+  proxy:
+    image: nginx:1.30.4-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - notes
+      - jaeger
+      - prometheus
+
+  notes:
+    build: ./app
+    environment:
+      OTEL_SERVICE_NAME: notes-web
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://collector:4318
+      OTEL_SEMCONV_STABILITY_OPT_IN: http   # use the stable HTTP semantic conventions
+      OTEL_METRIC_EXPORT_INTERVAL: "15000"  # send metrics every 15 s (default: 60 s)
+      # Empty until you add it to the .env file
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ${APPLICATIONINSIGHTS_CONNECTION_STRING:-}
+    depends_on:
+      - collector
+
+  # Calls the app every few seconds, like a handful of users would
+  traffic:
+    image: curlimages/curl:8.23.0
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        i=0
+        while true; do
+          i=$$((i + 1))
+          curl -s -o /dev/null http://notes:8000/
+          curl -s -o /dev/null http://notes:8000/slow
+          curl -s -o /dev/null --data "text=Generated note $$i" http://notes:8000/notes
+          if [ $$((i % 3)) -eq 0 ]; then curl -s -o /dev/null http://notes:8000/fail; fi
+          sleep 2
+        done
+    depends_on:
+      - notes
+
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      - jaeger
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0
+    command: ["--set=extensions.jaeger_query.base_path=/jaeger"]
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-otlp-receiver
+      - --web.external-url=/prometheus/
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro

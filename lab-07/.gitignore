@@ -1,0 +1,2 @@
+# holds the Application Insights connection string
+.env

@@ -1,0 +1,13 @@
+#cloud-config
+# Installs Docker on Ubuntu and starts the Observability lab stack
+package_update: true
+packages:
+  - docker.io
+  - docker-buildx
+  - docker-compose-v2
+  - git
+runcmd:
+  # the free-tier VM has 1 GB of memory: add 2 GB of swap
+  - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  - git clone https://github.com/elte-cloud-native/cloud-native-architectures-public-assets.git /opt/assets
+  - cd /opt/assets/lab-07 && docker compose up -d --build
